@@ -1,8 +1,11 @@
-#include<stdio.h>
-#include<sys/socket.h>
-#include<arpa/inet.h>
-#include<string.h>
-#include<stdlib.h>
+#include <stdio.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
+#include <string.h>
+#include <stdlib.h>
+#include<unistd.h>
+
+#define BUFSIZE 1024
 
 void error_handling(char *message);
 
@@ -15,7 +18,7 @@ int main(int argc, char **argv)
     struct sockaddr_in client_addr;
     socklen_t client_addr_len;
 
-    char message[] = "Hello World!\n";
+    char message[BUFSIZE] = {0};
     if (argc != 2)
     {
         fprintf(stderr, "Usage: %s <port>\n", argv[0]);
@@ -32,7 +35,7 @@ int main(int argc, char **argv)
     server_addr.sin_family = AF_INET;
     server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
     server_addr.sin_port = htons(atoi(argv[1]));
-    if (bind(server_sock, (struct sockaddr*)&server_addr, sizeof(server_addr)) == -1)
+    if (bind(server_sock, (struct sockaddr *)&server_addr, sizeof(server_addr)) == -1)
     {
         error_handling("bind() error");
     }
@@ -43,18 +46,26 @@ int main(int argc, char **argv)
         error_handling("listen() error");
     }
 
-    // 第4步，等待连接请求, 没有连接请求时accept将会阻塞
-    client_addr_len = sizeof(client_addr);
-    // accept将会返回一个socket用于和客户端通信
-    client_sock = accept(server_sock, (struct sockaddr *)&client_addr, &client_addr_len);
-    if (client_sock == -1)
+    // 第4步，循环接受连接
+    for (int i = 0; i< 5; i++)
     {
-        error_handling("accept() error");
+        client_sock = accept(server_sock, (struct sockaddr *)&client_addr, &client_addr_len);
+        if (client_sock == -1)
+        {
+            error_handling("accept() error");
+        }
+        else
+        {
+            printf("Connected clinet %d\n", i + 1);
+        }
+        int str_len = 0;
+        while ((str_len = read(client_sock, message, BUFSIZE)) != 0)
+        {
+            write(client_sock, message, str_len);
+        }
+        close(client_sock);
     }
-    // 第5步，向socket写入消息
-    write(client_sock, message, sizeof(message));
     close(server_sock);
-    close(client_sock);
 
     return 0;
 }
